@@ -69,4 +69,5 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.1.0")
     implementation("androidx.compose.ui:ui-graphics:1.5.1")
     implementation("com.google.accompanist:accompanist-flowlayout:0.30.1")
+    implementation("androidx.compose.material:material-icons-extended:1.5.1")
 }

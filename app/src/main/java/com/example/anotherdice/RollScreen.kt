@@ -19,6 +19,8 @@ import androidx.navigation.NavHostController
 import kotlin.random.Random
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.History
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import com.google.accompanist.flowlayout.FlowMainAxisAlignment
@@ -33,6 +35,10 @@ fun RollScreen(navController: NavHostController, dice: String?) {
     var showCelebration by remember { mutableStateOf(false) }
     var showDice by remember { mutableStateOf(false) }
     var diceCount by remember { mutableStateOf(1) }
+    var showHistoryDialog by remember { mutableStateOf(false) }
+    var showStatisticsDialog by remember { mutableStateOf(false) }
+    var sortBy by remember { mutableStateOf("Value") }
+    val history = remember { mutableStateListOf<List<Int>>() }
 
     Scaffold(
         topBar = {
@@ -41,6 +47,14 @@ fun RollScreen(navController: NavHostController, dice: String?) {
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { showHistoryDialog = true }) {
+                        Icon(Icons.Default.History, contentDescription = "History")
+                    }
+                    IconButton(onClick = { showStatisticsDialog = true }) {
+                        Icon(Icons.Default.BarChart, contentDescription = "Statistics")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -112,6 +126,7 @@ fun RollScreen(navController: NavHostController, dice: String?) {
                                 else -> 0
                             }
                         }
+                        history.add(result)
                         showCelebration = true
                         showDice = true
                     },
@@ -123,22 +138,131 @@ fun RollScreen(navController: NavHostController, dice: String?) {
                 }
                 AnimatedVisibility(visible = showCelebration) {
                     Column {
-                        result.forEachIndexed { index, res ->
-                            Text(
-                                text = "Result of Dice ${index + 1}: $res",
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Green,
-                                modifier = Modifier.padding(top = 16.dp)
-                            )
-                        }
+                        val sum = result.sum()
+                        Text(
+                            text = "Result of Dice: ${result.joinToString(", ")}",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Blue,
+                            modifier = Modifier.padding(top = 16.dp)
+                        )
+                        Text(
+                            text = "Sum: $sum",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Blue,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
                     }
                 }
             }
         }
     }
+
+    if (showHistoryDialog) {
+        AlertDialog(
+            onDismissRequest = { showHistoryDialog = false },
+            title = { Text("History") },
+            text = {
+                Column {
+                    history.forEachIndexed { index, roll ->
+                        Text("Roll ${index + 1}: ${roll.joinToString(", ")}")
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showHistoryDialog = false }) {
+                    Text("Close")
+                }
+            }
+        )
+    }
+
+    if (showStatisticsDialog) {
+        StatisticsDialog(
+            showStatisticsDialog = showStatisticsDialog,
+            onDismiss = { showStatisticsDialog = false },
+            history = history,
+            sortBy = sortBy,
+            onSortChange = { sortBy = it }
+        )
+    }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun StatisticsDialog(
+    showStatisticsDialog: Boolean,
+    onDismiss: () -> Unit,
+    history: List<List<Int>>,
+    sortBy: String,
+    onSortChange: (String) -> Unit
+) {
+    if (showStatisticsDialog) {
+        var expanded by remember { mutableStateOf(false) }
+
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text("Statistics") },
+            text = {
+                val totalRolls = history.flatten().size
+                val rollCounts = history.flatten().groupingBy { it }.eachCount()
+                var sortedRollCounts = rollCounts.entries.toList()
+                if (sortBy == "Value") {
+                    sortedRollCounts = sortedRollCounts.sortedBy { it.key }
+                } else {
+                    sortedRollCounts = sortedRollCounts.sortedByDescending { it.value }
+                }
+                Column {
+                    ExposedDropdownMenuBox(
+                        expanded = expanded,
+                        onExpandedChange = { expanded = !expanded }
+                    ) {
+                        TextField(
+                            value = sortBy,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Sort by") },
+                            trailingIcon = {
+                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                            },
+                            modifier = Modifier.menuAnchor(),
+                            colors = ExposedDropdownMenuDefaults.textFieldColors()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = expanded,
+                            onDismissRequest = { expanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Sort by Value") },
+                                onClick = {
+                                    onSortChange("Value")
+                                    expanded = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Sort by Percentage") },
+                                onClick = {
+                                    onSortChange("Percentage")
+                                    expanded = false
+                                }
+                            )
+                        }
+                    }
+                    sortedRollCounts.forEach { (value, count) ->
+                        val percentage = (count * 100.0 / totalRolls).toInt()
+                        Text("Value $value: $count times ($percentage%)")
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = onDismiss) {
+                    Text("Close")
+                }
+            }
+        )
+    }
+}
 fun DrawScope.drawDiceFace(result: Int) {
     val dotRadius = 10.dp.toPx()
     val centerX = size.width / 2
