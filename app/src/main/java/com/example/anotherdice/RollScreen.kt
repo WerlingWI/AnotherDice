@@ -43,7 +43,7 @@ fun RollScreen(navController: NavHostController, dice: String?) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Dice Roller") },
+                title = { Text("Another Dice") },
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
